@@ -64,8 +64,6 @@ class Timer:
 class Space:
     def __init__(self):
         self.timer = Timer()
-        self.timer_thread = threading.Thread()
-        self.timer_thread.start()
 
         self.player = Player(3)
         self.game_over = False
@@ -84,6 +82,7 @@ class Space:
     def add_enemy(self, enemy: Enemy):
         self.lock_enemies.acquire()
         self.enemies[enemy.position] = enemy.sprite
+        time.sleep(5)
         self.lock_enemies.release()
 
     def shots_physic(self):
@@ -100,7 +99,7 @@ class Space:
 
     def refresh(self):
         self.field = [[" " for _ in range(COLUMNS * 2)] for _ in range(ROWS)]
-        self.timer.refresh()
+        # self.timer.refresh()
         self.game_over = self.player.lifes == 0
         for x, y in self.player.position:
             self.field[y][x] = self.player.sprite
@@ -160,6 +159,11 @@ def spawn_enemy(space):
         space.add_enemy(enemy)
         time.sleep(1)
 
+def timer(space):
+    while not space.game_over:
+        space.timer.refresh()
+        time.sleep(0.01)
+
 
 def controller(window, space):
     while not space.game_over:
@@ -177,6 +181,9 @@ def start(window):
     enemy_spawner = threading.Thread(target=spawn_enemy, args=(space,))
     enemy_spawner.start()
 
+    timer_thread = threading.Thread(target=timer, args=(space,))
+    timer_thread.start()
+
     while not space.game_over:
         window.clear()
         window.insstr(0, 0, str(space))
@@ -186,6 +193,7 @@ def start(window):
 
     control.join()
     enemy_spawner.join()
+    timer_thread.join()
 
 
 if __name__ == "__main__":
