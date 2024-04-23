@@ -25,6 +25,7 @@ class Enemy:
         y = random.randint(3, 13)
         self.position = (COLUMNS * 2 - x, ROWS - y)
 
+
 class Player:
     def __init__(self, lifes):
         self.lifes = lifes
@@ -42,8 +43,9 @@ class Player:
 class Timer:
     start_time = time.perf_counter()
     actual_time = '0:0:0'
-    times= ['🕛', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚']
+    times = ['🕛', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚']
     times_index = 0
+
     def refresh(self):
         now = time.perf_counter() - self.start_time
         minutes = int(now // 60)
@@ -84,7 +86,6 @@ class Space:
         self.enemies[enemy.position] = enemy.sprite
         self.lock_enemies.release()
 
-
     def shots_physic(self):
         shots_copy = self.shots.copy()
         for (x, y), typ in shots_copy.items():
@@ -110,6 +111,7 @@ class Space:
         self.shots_physic()
         if len(self.logs.splitlines()) > 30:
             self.logs = ""
+
     def __str__(self):
         area = f'Czas gry: {self.timer}\t'
         area += f'Pozostałe życia: {self.player.lifes * '💜'}\n'
