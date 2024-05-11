@@ -1,12 +1,8 @@
 """
-- refaktor kodu, klasy do oddzielnych .py
-- logi zmienić na IC
-- przeciwnicy góra dół poruszanie sie i strzelanie
-- kolizje strzalow
-- class Shot
--
 
-
-
-
+-- trzeba dodać quit na wątek?
+-- jakieś elementy w tle aby było dynamiczniej
+-- różne muzyki do bossów
+-- bossowie
 """
+

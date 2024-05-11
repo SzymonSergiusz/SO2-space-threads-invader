@@ -1,200 +1,278 @@
-import curses
-import time
-import threading
+import pygame
 import random
+import threading
+import pygame.mixer
 
-COLUMNS = 50
-ROWS = 25
-SHOT_SPEED = 2
-"""
-🛸
-👾
-👽
-👹
-
-"""
-ENEMY_LIST = {'🛸': 1, '👾': 1, '👽': 2, '👹': 3}
-
-
-class Enemy:
-    def __init__(self):
-        sprite, lifes = random.choice(list(ENEMY_LIST.items()))
-        self.sprite = sprite
-        self.lifes = lifes
-        x = random.randint(3, 13)
-        y = random.randint(3, 13)
-        self.position = (COLUMNS * 2 - x, ROWS - y)
+import CONFIG
+from CONFIG import SHOT_SPEED, SCREEN_WIDTH, BLACK, WHITE, SCREEN_HEIGHT, FPS
+from Level import Level
+from characters.BasicEnemies import Enemy
+from characters.Player import Player
+from characters.Projectiles import Shot
+from characters.BossEnemies import Boss, SpaceDragon
+from ui.Timer import Timer
 
 
-class Player:
-    def __init__(self, lifes):
-        self.lifes = lifes
-        self.sprite = '🚀'
-        # self.shot_sprite = '🔥'
-        # self.shot_sprite = '⌁'
-        # self.shot_sprite = '➢'
-        self.shot_sprite = '⏤'
-        self.position = [(10, 10)]
+LEVELS = [
+    Level(0, CONFIG.BACKGROUND1, 20, SpaceDragon((CONFIG.SPACE_DRAGON, 40, 8, 'Rayquaza z Pokemonów')),),
+    Level(1, CONFIG.BACKGROUND2, 50, SpaceDragon((CONFIG.SPACE_DRAGON, 40, 8, 'Rayquaza1 z Pokemonów')),),
+    Level(2, CONFIG.BACKGROUND3, 70, SpaceDragon((CONFIG.SPACE_DRAGON, 40, 8, 'Rayquaza2 z Pokemonów')),),
+]
 
-    def shot(self):
-        return self.shot_sprite
-
-
-class Timer:
-    start_time = time.perf_counter()
-    actual_time = '0:0:0'
-    times = ['🕛', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚']
-    times_index = 0
-
-    def refresh(self):
-        now = time.perf_counter() - self.start_time
-        minutes = int(now // 60)
-        seconds = int(now % 60)
-        milliseconds = f'{(int((now - int(now)) * 1000)):02d}'[:2]
-
-        self.actual_time = f'{self.times[self.times_index]} {minutes}:{seconds:02d}:{milliseconds}'
-        self.times_index += 1
-        if self.times_index == len(self.times):
-            self.times_index = 0
-
-    def __str__(self):
-        return self.actual_time
-
-
-class Space:
+class Game:
     def __init__(self):
         self.timer = Timer()
-
-        self.player = Player(3)
+        self.player = Player()
         self.game_over = False
-        self.area_border_sprite = '🌌'
-        self.field = [[" " for _ in range(COLUMNS * 2)] for _ in range(ROWS)]
-        self.condition_move = threading.Condition()
+        self.shots = []
+        self.enemy_shots = []
+        self.enemies = []
+        self.bosses = []
+        self.points = 0
+        self.life_sprite = CONFIG.LIFE_SPRITE
+        self.boss_spawned = False
+        self.level = LEVELS[0]
+        self.points_to_beat = self.level.points_to_boss
+        self.background = self.level.background
 
-        self.logs = ""
-
-        self.shots = {}
-        self.lock_shots = threading.Lock()
-
-        self.enemies = {}
-        self.lock_enemies = threading.Lock()
+    def new_level(self, new_level):
+        self.level = new_level
+        self.points_to_beat = new_level.points_to_boss
+        self.background = new_level.background
+        self.boss_spawned = False
 
     def add_enemy(self, enemy: Enemy):
-        self.lock_enemies.acquire()
-        self.enemies[enemy.position] = enemy.sprite
-        time.sleep(5)
-        self.lock_enemies.release()
+        if not self.boss_spawned:
+            self.enemies.append(enemy)
+
+    def add_boss(self, boss: Boss):
+        self.bosses.append(boss)
 
     def shots_physic(self):
-        shots_copy = self.shots.copy()
-        for (x, y), typ in shots_copy.items():
-            del self.shots[(x, y)]
-            x += SHOT_SPEED
+        for shot in self.shots[:]:
+            shot.rect.x += SHOT_SPEED
+            if shot.rect.x > SCREEN_WIDTH:
+                self.shots.remove(shot)
 
-            if x < (COLUMNS - 1) * 2:
-                self.shots[(x, y)] = typ
+        for shot in self.enemy_shots[:]:
+            shot.rect.x -= SHOT_SPEED
+            if shot.rect.x < 0 or shot.rect.y < 0 or shot.rect.y > SCREEN_HEIGHT:
+                self.enemy_shots.remove(shot)
 
-        for (x, y), typ in self.shots.items():
-            self.field[y][x] = typ
+    def check_collisions(self):
+        shots_to_remove = []
+        enemies_to_remove = []
+        bosses_to_remove = []
+
+        for shot in self.shots[:]:
+            for enemy in self.enemies[:]:
+                if shot.rect.colliderect(enemy.rect):
+                    if shot not in shots_to_remove:
+                        shots_to_remove.append(shot)
+                    enemy.lifes -= 1
+                    if enemy.lifes <= 0 and enemy not in enemies_to_remove:
+                        enemies_to_remove.append(enemy)
+
+            for boss in self.bosses[:]:
+                if shot.rect.colliderect(boss.rect):
+                    if shot not in shots_to_remove:
+                        shots_to_remove.append(shot)
+                    boss.lifes -= 1
+                    if boss.lifes <= 0 and boss not in bosses_to_remove:
+                        bosses_to_remove.append(boss)
+
+        for shot in shots_to_remove:
+            if shot in self.shots:
+                self.shots.remove(shot)
+
+        for enemy in enemies_to_remove:
+            if enemy in self.enemies:
+                self.enemies.remove(enemy)
+                self.points += 1
+
+        for boss in bosses_to_remove:
+            if boss in self.bosses:
+                self.bosses.remove(boss)
+                self.points += 10
+                if self.level.level_number <= len(LEVELS):
+                    self.new_level(LEVELS[self.level.level_number+1])
+                else:
+                    self.game_over = True
+        for shot in self.enemy_shots[:]:
+            if shot.rect.colliderect(self.player.rect):
+                self.enemy_shots.remove(shot)
+                self.player.lifes -= 1
+                if self.player.lifes <= 0:
+                    self.game_over = True
 
     def refresh(self):
-        self.field = [[" " for _ in range(COLUMNS * 2)] for _ in range(ROWS)]
-        # self.timer.refresh()
-        self.game_over = self.player.lifes == 0
-        for x, y in self.player.position:
-            self.field[y][x] = self.player.sprite
-
-        for (x, y), sprite in self.enemies.items():
-            self.field[y][x] = sprite
-
+        self.timer.refresh()
         self.shots_physic()
-        if len(self.logs.splitlines()) > 30:
-            self.logs = ""
+        self.check_collisions()
 
-    def __str__(self):
-        area = f'Czas gry: {self.timer}\t'
-        area += f'Pozostałe życia: {self.player.lifes * '💜'}\n'
+        if not self.boss_spawned and self.points >= self.points_to_beat:
+            self.boss_spawned = True
+            self.enemies = []
+            self.spawn_boss()
 
-        area += self.area_border_sprite * (COLUMNS + 1) + "\n"
+        if not self.boss_spawned:
+            for enemy in self.enemies[:]:
+                enemy.update()
+                if random.random() < 0.02:
+                    self.enemy_shots.append(enemy.shoot())
 
-        for row in self.field:
-            area += self.area_border_sprite
-            for slot in row:
-                area += slot
-            area += f'{self.area_border_sprite}\n'
-        area += self.area_border_sprite * (COLUMNS + 1)
-        area += f'\n\n\n {self.logs}'
-        return area
+        for boss in self.bosses[:]:
+            boss.update()
+            if random.random() < 0.05:
+                new_shots = boss.shoot()
+                self.enemy_shots.extend(new_shots)
 
-    def controller(self, input):
-        with self.condition_move:
-            self.move(input)
+        for shot in self.enemy_shots:
+            shot.update()
 
-    def move(self, input):
-        x, y = self.player.position[0]
-        match input:
-            case 'w':
-                y -= 1
-            case 'a':
-                x -= 1
-            case 's':
-                y += 1
-            case 'd':
-                x += 1
-            case ' ':
-                sx, sy = self.player.position[0]
-                sx += 1
-                self.lock_shots.acquire()
-                self.shots[(sx, sy)] = self.player.shot()
+        self.game_over = self.player.lifes == 0
 
-                self.lock_shots.release()
+    def draw(self, screen):
+        screen.blit(self.background, (0, 0))
+        screen.blit(self.player.sprite, self.player.rect)
 
-        self.player.position[0] = (x, y)
-        self.condition_move.notify()
+        for shot in self.shots:
+            screen.blit(shot.sprite, shot.rect)
+
+        for shot in self.enemy_shots:
+            screen.blit(shot.sprite, shot.rect)
+
+        for enemy in self.enemies:
+            enemy.draw(screen)
+
+        for boss in self.bosses:
+            boss.draw(screen)
+
+        font = pygame.font.Font(None, 36)
+        timer_surf = font.render(f"Time: {self.timer}", True, WHITE)
+        screen.blit(timer_surf, (10, 10))
+
+        for i in range(self.player.lifes):
+            screen.blit(self.life_sprite, (10 + i * 36, 50))
+
+        points_surf = font.render(f"Points: {self.points}", True, WHITE)
+        screen.blit(points_surf, (10, 90))
+
+        quit_button = pygame.Rect(SCREEN_WIDTH - 100, 10, 80, 40)
+        pygame.draw.rect(screen, WHITE, quit_button)
+        quit_text = font.render("Quit", True, BLACK)
+        screen.blit(quit_text, (quit_button.centerx - quit_text.get_width() // 2, quit_button.centery - quit_text.get_height() // 2))
+
+        self.draw_boss_health_bar(screen)
+        return quit_button
+
+    def move_player(self, dx, dy):
+        self.player.move(dx, dy)
+
+    def shoot(self):
+        shot = Shot(self.player.rect.midright)
+        self.shots.append(shot)
+
+    def spawn_boss(self):
+        boss = self.level.boss_class
+        self.add_boss(boss)
+
+    def draw_boss_health_bar(self, screen):
+        if self.bosses:
+            boss = self.bosses[0]
+            max_lifes = boss.max_health
+            bar_width = 1200
+            bar_height = 20
+            fill_width = int(bar_width * boss.lifes / max_lifes)
+            bar_x = (SCREEN_WIDTH - bar_width) // 2
+            bar_y = SCREEN_HEIGHT - 30
+            screen.blit(pygame.font.Font(None, 50).render(boss.name, True, WHITE), (bar_x + bar_width // 3, SCREEN_HEIGHT - 80))
+            pygame.draw.rect(screen, CONFIG.RED, (bar_x, bar_y, bar_width, bar_height))
+            pygame.draw.rect(screen, CONFIG.GREY, (bar_x, bar_y, fill_width, bar_height))
 
 
-def spawn_enemy(space):
-    while not space.game_over:
-        enemy = Enemy()
-        space.add_enemy(enemy)
-        time.sleep(1)
-
-def timer(space):
-    while not space.game_over:
-        space.timer.refresh()
-        time.sleep(0.01)
+def spawn_enemy(game):
+    while not game.game_over:
+        if not game.boss_spawned:
+            enemy = Enemy()
+            game.add_enemy(enemy)
+        pygame.time.wait(2000)
 
 
-def controller(window, space):
-    while not space.game_over:
-        char = window.getch()
-        space.logs += f'input char: {char}\n'
-        space.controller(chr(char))
+def timer(game):
+    while not game.game_over:
+        pygame.time.wait(10)
+        game.timer.refresh()
 
 
-def start(window):
-    space = Space()
+def main():
+    pygame.init()
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption("Space Threads Impact")
 
-    control = threading.Thread(target=controller, args=(window, space))
-    control.start()
+    pygame.mixer.init()
+    pygame.mixer.music.load("assets/background_music.mp3")
+    pygame.mixer.music.set_volume(0.1)
+    if CONFIG.MUSIC_ON:
+        pygame.mixer.music.play(-1)
 
-    enemy_spawner = threading.Thread(target=spawn_enemy, args=(space,))
+    clock = pygame.time.Clock()
+    game = Game()
+
+    enemy_spawner = threading.Thread(target=spawn_enemy, args=(game,))
     enemy_spawner.start()
 
-    timer_thread = threading.Thread(target=timer, args=(space,))
+    timer_thread = threading.Thread(target=timer, args=(game,))
     timer_thread.start()
 
-    while not space.game_over:
-        window.clear()
-        window.insstr(0, 0, str(space))
-        window.refresh()
-        time.sleep(0.15)
-        space.refresh()
+    dx, dy = 0, 0
 
-    control.join()
+    while not game.game_over:
+        quit_button = game.draw(screen)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                game.game_over = True
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_w:
+                    dy = -10
+                elif event.key == pygame.K_a:
+                    dx = -10
+                elif event.key == pygame.K_s:
+                    dy = 10
+                elif event.key == pygame.K_d:
+                    dx = 10
+                elif event.key == pygame.K_SPACE:
+                    game.shoot()
+
+                # CHEAT CODES
+                elif event.key == pygame.K_p:
+                    game.points += 10
+                elif event.key == pygame.K_x:
+                    if game.boss_spawned:
+                        game.bosses[0].lifes = 1
+
+
+                elif event.key == pygame.K_ESCAPE:
+                    game.game_over = True
+            elif event.type == pygame.KEYUP:
+                if event.key == pygame.K_w or event.key == pygame.K_s:
+                    dy = 0
+                elif event.key == pygame.K_a or event.key == pygame.K_d:
+                    dx = 0
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if quit_button.collidepoint(event.pos):
+                    game.game_over = True
+
+        game.move_player(dx, dy)
+        game.refresh()
+        pygame.display.flip()
+        clock.tick(FPS)
+
     enemy_spawner.join()
     timer_thread.join()
 
+    pygame.quit()
+
 
 if __name__ == "__main__":
-    curses.wrapper(start)
+    main()
