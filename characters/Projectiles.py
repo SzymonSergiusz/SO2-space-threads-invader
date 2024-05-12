@@ -1,6 +1,6 @@
 import pygame
 
-from CONFIG import SHOT_SPRITE, ENEMY_SHOT_SPRITE
+from SPRITES_CONFIG import SHOT_SPRITE, ENEMY_SHOT_SPRITE
 
 # TODO dać do klas które z nich korzystają?
 class Shot:

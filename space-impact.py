@@ -4,20 +4,24 @@ import threading
 import pygame.mixer
 
 import CONFIG
-from CONFIG import SHOT_SPEED, SCREEN_WIDTH, BLACK, WHITE, SCREEN_HEIGHT, FPS
+import SPRITES_CONFIG
+from CONFIG import SHOT_SPEED, SCREEN_WIDTH, BLACK, WHITE, SCREEN_HEIGHT, FPS, PLAYER_SPEED
 from Level import Level
 from characters.BasicEnemies import Enemy
 from characters.Player import Player
 from characters.Projectiles import Shot
-from characters.BossEnemies import Boss, SpaceDragon
+from characters.BossEnemies import Boss, SpaceDragon, SpaceCow, MegaSpaceDragon
+from ui.BackgroundItems import BackgroundItems
 from ui.Timer import Timer
 
-
 LEVELS = [
-    Level(0, CONFIG.BACKGROUND1, 20, SpaceDragon((CONFIG.SPACE_DRAGON, 40, 8, 'Rayquaza z Pokemonów')),),
-    Level(1, CONFIG.BACKGROUND2, 50, SpaceDragon((CONFIG.SPACE_DRAGON, 40, 8, 'Rayquaza1 z Pokemonów')),),
-    Level(2, CONFIG.BACKGROUND3, 70, SpaceDragon((CONFIG.SPACE_DRAGON, 40, 8, 'Rayquaza2 z Pokemonów')),),
+    Level(0, SPRITES_CONFIG.BACKGROUND1, 20, SpaceDragon((SPRITES_CONFIG.SPACE_DRAGON, 40, 8, 'Rayquaza z Pokemonów')),),
+    Level(1, SPRITES_CONFIG.BACKGROUND2, 50, SpaceCow((SPRITES_CONFIG.SPACE_COW, 40, 8, 'Kosmiczna krowa')),),
+    Level(2, SPRITES_CONFIG.BACKGROUND3, 70,
+          MegaSpaceDragon((SPRITES_CONFIG.MEGA_SPACE_DRAGON_FRAMES[0], 40, 8, 'MegaSmok'),
+                          SPRITES_CONFIG.MEGA_SPACE_DRAGON_FRAMES))
 ]
+
 
 class Game:
     def __init__(self):
@@ -29,11 +33,13 @@ class Game:
         self.enemies = []
         self.bosses = []
         self.points = 0
-        self.life_sprite = CONFIG.LIFE_SPRITE
+        self.life_sprite = SPRITES_CONFIG.LIFE_SPRITE
         self.boss_spawned = False
         self.level = LEVELS[0]
         self.points_to_beat = self.level.points_to_boss
         self.background = self.level.background
+        self.background_elements = []
+        self.last_background_element_spawn_time = 0
 
     def new_level(self, new_level):
         self.level = new_level
@@ -44,6 +50,12 @@ class Game:
     def add_enemy(self, enemy: Enemy):
         if not self.boss_spawned:
             self.enemies.append(enemy)
+
+    def add_backround_element(self):
+        if SPRITES_CONFIG.DYNAMIC_BACKGROUND_ITEMS:
+            element = random.choice(SPRITES_CONFIG.DYNAMIC_BACKGROUND_ITEMS)
+            self.background_elements.append(BackgroundItems(element))
+            SPRITES_CONFIG.DYNAMIC_BACKGROUND_ITEMS.remove(element)
 
     def add_boss(self, boss: Boss):
         self.bosses.append(boss)
@@ -95,7 +107,7 @@ class Game:
                 self.bosses.remove(boss)
                 self.points += 10
                 if self.level.level_number <= len(LEVELS):
-                    self.new_level(LEVELS[self.level.level_number+1])
+                    self.new_level(LEVELS[self.level.level_number + 1])
                 else:
                     self.game_over = True
         for shot in self.enemy_shots[:]:
@@ -109,6 +121,12 @@ class Game:
         self.timer.refresh()
         self.shots_physic()
         self.check_collisions()
+
+        for planet in self.background_elements[:]:
+            planet.update()
+            if planet.rect.right < 0:
+                self.background_elements.remove(planet)
+
 
         if not self.boss_spawned and self.points >= self.points_to_beat:
             self.boss_spawned = True
@@ -134,7 +152,10 @@ class Game:
 
     def draw(self, screen):
         screen.blit(self.background, (0, 0))
-        screen.blit(self.player.sprite, self.player.rect)
+
+
+        for planet in self.background_elements:
+            planet.draw(screen)
 
         for shot in self.shots:
             screen.blit(shot.sprite, shot.rect)
@@ -161,8 +182,9 @@ class Game:
         quit_button = pygame.Rect(SCREEN_WIDTH - 100, 10, 80, 40)
         pygame.draw.rect(screen, WHITE, quit_button)
         quit_text = font.render("Quit", True, BLACK)
-        screen.blit(quit_text, (quit_button.centerx - quit_text.get_width() // 2, quit_button.centery - quit_text.get_height() // 2))
-
+        screen.blit(quit_text, (
+        quit_button.centerx - quit_text.get_width() // 2, quit_button.centery - quit_text.get_height() // 2))
+        screen.blit(self.player.sprite, self.player.rect)
         self.draw_boss_health_bar(screen)
         return quit_button
 
@@ -186,7 +208,8 @@ class Game:
             fill_width = int(bar_width * boss.lifes / max_lifes)
             bar_x = (SCREEN_WIDTH - bar_width) // 2
             bar_y = SCREEN_HEIGHT - 30
-            screen.blit(pygame.font.Font(None, 50).render(boss.name, True, WHITE), (bar_x + bar_width // 3, SCREEN_HEIGHT - 80))
+            screen.blit(pygame.font.Font(None, 50).render(boss.name, True, WHITE),
+                        (bar_x + bar_width // 3, SCREEN_HEIGHT - 80))
             pygame.draw.rect(screen, CONFIG.RED, (bar_x, bar_y, bar_width, bar_height))
             pygame.draw.rect(screen, CONFIG.GREY, (bar_x, bar_y, fill_width, bar_height))
 
@@ -203,6 +226,11 @@ def timer(game):
     while not game.game_over:
         pygame.time.wait(10)
         game.timer.refresh()
+
+def spawn_background_element(game):
+    while not game.game_over:
+        pygame.time.wait(random.randint(5, 30)*1000)
+        game.add_backround_element()
 
 
 def main():
@@ -225,6 +253,9 @@ def main():
     timer_thread = threading.Thread(target=timer, args=(game,))
     timer_thread.start()
 
+    ui_background_items_thread = threading.Thread(target=spawn_background_element, args=(game, ))
+    ui_background_items_thread.start()
+
     dx, dy = 0, 0
 
     while not game.game_over:
@@ -234,13 +265,13 @@ def main():
                 game.game_over = True
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_w:
-                    dy = -10
+                    dy = -PLAYER_SPEED
                 elif event.key == pygame.K_a:
-                    dx = -10
+                    dx = -PLAYER_SPEED
                 elif event.key == pygame.K_s:
-                    dy = 10
+                    dy = PLAYER_SPEED
                 elif event.key == pygame.K_d:
-                    dx = 10
+                    dx = PLAYER_SPEED
                 elif event.key == pygame.K_SPACE:
                     game.shoot()
 
@@ -270,7 +301,7 @@ def main():
 
     enemy_spawner.join()
     timer_thread.join()
-
+    ui_background_items_thread.join()
     pygame.quit()
 
 

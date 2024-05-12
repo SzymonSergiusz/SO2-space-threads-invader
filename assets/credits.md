@@ -12,3 +12,6 @@ https://opengameart.org/content/dragon-idle-animation
 https://opengameart.org/content/pixel-battler
 
 https://opengameart.org/content/monstruous-fish
+
+https://kenney.nl/assets/planets
+

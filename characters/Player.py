@@ -1,7 +1,7 @@
 import pygame
 
-from CONFIG import SCREEN_HEIGHT, SHOT_SPRITE, SCREEN_WIDTH, PLAYER_SPRITE, PLAYER_LIVES
-
+from CONFIG import SCREEN_HEIGHT, SCREEN_WIDTH,  PLAYER_LIVES
+from SPRITES_CONFIG import SHOT_SPRITE, PLAYER_SPRITE
 
 class Player:
     def __init__(self):

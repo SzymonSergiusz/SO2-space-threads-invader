@@ -1,6 +1,7 @@
 import random
 
-from CONFIG import ENEMY_LIST, SCREEN_WIDTH, SCREEN_HEIGHT
+from CONFIG import SCREEN_WIDTH, SCREEN_HEIGHT
+from SPRITES_CONFIG import ENEMY_LIST
 from characters.Projectiles import EnemyShot
 
 ENEMY_BORDER_X = SCREEN_WIDTH // 3
