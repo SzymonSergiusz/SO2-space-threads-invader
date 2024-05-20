@@ -45,7 +45,11 @@ class Game:
 
 
         self.boosts = []
-        self.boosts_lock = threading.Semaphore(CONFIG.BOOSTS_LIMIT)
+        self.boosts_lock = threading.Semaphore(CONFIG.BOOSTS_LIMIT) # SEMAPHORE
+
+        self.enemies_lock = threading.Semaphore(CONFIG.MAX_ENEMY_NUMBER) # SEMAPHORE
+
+        self.points_lock = threading.Lock() # MUTEX
 
     def new_level(self, new_level):
         self.level = new_level
@@ -106,12 +110,15 @@ class Game:
         for enemy in enemies_to_remove:
             if enemy in self.enemies:
                 self.enemies.remove(enemy)
-                self.points += 1
+                with self.points_lock:
+                    self.points += 1
+                self.enemies_lock.release()
 
         for boss in bosses_to_remove:
             if boss in self.bosses:
                 self.bosses.remove(boss)
-                self.points += 10
+                with self.points_lock:
+                    self.points += 10
                 if self.level.level_number < len(LEVELS) - 1:
                     self.new_level(LEVELS[self.level.level_number + 1])
                 else:
@@ -142,6 +149,7 @@ class Game:
         if not self.boss_spawned and self.points >= self.points_to_beat:
             self.boss_spawned = True
             self.enemies = []
+            self.enemies_lock = threading.Semaphore(CONFIG.MAX_ENEMY_NUMBER)
             self.spawn_boss()
 
         if not self.boss_spawned:
@@ -237,7 +245,7 @@ class Game:
 
 def spawn_enemy(game):
     while not game.game_over:
-        if not game.boss_spawned:
+        if not game.boss_spawned and game.enemies_lock.acquire(blocking=False):
             enemy = Enemy()
             game.add_enemy(enemy)
         pygame.time.wait(2000)
@@ -282,6 +290,7 @@ def main():
 
     while not game.game_over:
         quit_button = game.draw(screen)
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 game.game_over = True
@@ -299,7 +308,8 @@ def main():
 
                 # CHEAT CODES
                 elif event.key == pygame.K_p:
-                    game.points += 10
+                    with game.points_lock:
+                        game.points += 10
                 elif event.key == pygame.K_x:
                     if game.boss_spawned:
                         game.bosses[0].lifes = 1
@@ -315,6 +325,7 @@ def main():
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if quit_button.collidepoint(event.pos):
                     game.game_over = True
+
 
         game.move_player(dx, dy)
         game.refresh()

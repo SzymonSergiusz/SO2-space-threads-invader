@@ -14,7 +14,7 @@ class Player:
         self.sprite = PLAYER_SPRITE.convert_alpha()
         self.rect = self.sprite.get_rect(topleft=(50, SCREEN_HEIGHT // 2))
         self.shot_sprite = SHOT_SPRITE
-        self.ammo_limit_lock = threading.Semaphore(CONFIG.AMMO_CAPACITY)  # SEMAFOR
+        self.ammo_limit_lock = threading.Semaphore(CONFIG.AMMO_CAPACITY)  # SEMAPHOORE
         self.reload_time = CONFIG.AMMO_RELOAD_TIME
 
     def shot(self):
