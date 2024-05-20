@@ -130,7 +130,7 @@ for i in range(0, 10):
     load = pygame.image.load(path)
     scale = pygame.transform.scale(load, (500, 500))
     DYNAMIC_BACKGROUND_ITEMS.append(scale)
-for i in range(0, 9):
+for i in range(0, 6):
     path = f"assets/backgrounds/elements/easteregg{i}.png"
     load = pygame.image.load(path)
     scale = pygame.transform.scale(load, (500, 500))
