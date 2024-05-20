@@ -7,6 +7,7 @@ import CONFIG
 import SPRITES_CONFIG
 from CONFIG import SHOT_SPEED, SCREEN_WIDTH, BLACK, WHITE, SCREEN_HEIGHT, FPS, PLAYER_SPEED
 from Level import Level
+from ui.Slider import Slider
 from characters.BasicEnemies import Enemy
 from characters.Player import Player
 from characters.Projectiles import Shot
@@ -27,6 +28,7 @@ class Game:
     def __init__(self):
         self.timer = Timer()
         self.player = Player()
+        self.volume_slider = Slider(800, 30, 300, 20, 0, 2, 0.1)
         self.game_over = False
         self.shots = []
         self.enemy_shots = []
@@ -186,6 +188,7 @@ class Game:
         quit_button.centerx - quit_text.get_width() // 2, quit_button.centery - quit_text.get_height() // 2))
         screen.blit(self.player.sprite, self.player.rect)
         self.draw_boss_health_bar(screen)
+        self.volume_slider.draw(screen)
         return quit_button
 
     def move_player(self, dx, dy):
@@ -240,7 +243,7 @@ def main():
 
     pygame.mixer.init()
     pygame.mixer.music.load("assets/background_music.mp3")
-    pygame.mixer.music.set_volume(0.1)
+    pygame.mixer.music.set_volume(0.5)
     if CONFIG.MUSIC_ON:
         pygame.mixer.music.play(-1)
 
@@ -290,9 +293,19 @@ def main():
                     dy = 0
                 elif event.key == pygame.K_a or event.key == pygame.K_d:
                     dx = 0
-            elif event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if quit_button.collidepoint(event.pos):
                     game.game_over = True
+                elif game.volume_slider.handle_rect.collidepoint(event.pos):
+                    game.volume_slider.dragging = True
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                game.volume_slider.dragging = False
+            elif event.type == pygame.MOUSEMOTION:
+                if game.volume_slider.dragging:
+                    new_x = max(game.volume_slider.rect.left, min(event.pos[0] - 10, game.volume_slider.rect.right - 20))
+                    game.volume_slider.handle_rect.x = new_x
+                    game.volume_slider.value = game.volume_slider.min_val + (new_x - game.volume_slider.rect.left) / (game.volume_slider.rect.width) * (game.volume_slider.max_val - game.volume_slider.min_val)
+                    pygame.mixer.music.set_volume(game.volume_slider.get_value())
 
         game.move_player(dx, dy)
         game.refresh()
