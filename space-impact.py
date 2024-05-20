@@ -106,7 +106,7 @@ class Game:
             if boss in self.bosses:
                 self.bosses.remove(boss)
                 self.points += 10
-                if self.level.level_number <= len(LEVELS):
+                if self.level.level_number < len(LEVELS) - 1:
                     self.new_level(LEVELS[self.level.level_number + 1])
                 else:
                     self.game_over = True
