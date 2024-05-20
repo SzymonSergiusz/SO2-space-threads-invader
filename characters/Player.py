@@ -1,7 +1,11 @@
+import threading
+
 import pygame
 
-from CONFIG import SCREEN_HEIGHT, SCREEN_WIDTH,  PLAYER_LIVES
+import CONFIG
+from CONFIG import SCREEN_HEIGHT, SCREEN_WIDTH, PLAYER_LIVES
 from SPRITES_CONFIG import SHOT_SPRITE, PLAYER_SPRITE
+
 
 class Player:
     def __init__(self):
@@ -10,6 +14,8 @@ class Player:
         self.sprite = PLAYER_SPRITE.convert_alpha()
         self.rect = self.sprite.get_rect(topleft=(50, SCREEN_HEIGHT // 2))
         self.shot_sprite = SHOT_SPRITE
+        self.ammo_limit_lock = threading.Semaphore(CONFIG.AMMO_CAPACITY)  # SEMAFOR
+        self.reload_time = CONFIG.AMMO_RELOAD_TIME
 
     def shot(self):
         return self.shot_sprite

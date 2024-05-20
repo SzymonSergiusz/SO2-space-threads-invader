@@ -12,11 +12,13 @@ from characters.Player import Player
 from characters.Projectiles import Shot
 from characters.BossEnemies import Boss, SpaceDragon, SpaceCow, MegaSpaceDragon
 from ui.BackgroundItems import BackgroundItems
+from ui.Boost import Boost
 from ui.Timer import Timer
 
 LEVELS = [
-    Level(0, SPRITES_CONFIG.BACKGROUND1, 20, SpaceDragon((SPRITES_CONFIG.SPACE_DRAGON, 40, 8, 'Rayquaza z Pokemonów')),),
-    Level(1, SPRITES_CONFIG.BACKGROUND2, 50, SpaceCow((SPRITES_CONFIG.SPACE_COW, 40, 8, 'Kosmiczna krowa')),),
+    Level(0, SPRITES_CONFIG.BACKGROUND1, 20,
+          SpaceDragon((SPRITES_CONFIG.SPACE_DRAGON, 40, 8, 'Rayquaza z Pokemonów')), ),
+    Level(1, SPRITES_CONFIG.BACKGROUND2, 50, SpaceCow((SPRITES_CONFIG.SPACE_COW, 40, 8, 'Kosmiczna krowa')), ),
     Level(2, SPRITES_CONFIG.BACKGROUND3, 70,
           MegaSpaceDragon((SPRITES_CONFIG.MEGA_SPACE_DRAGON_FRAMES[0], 40, 8, 'MegaSmok'),
                           SPRITES_CONFIG.MEGA_SPACE_DRAGON_FRAMES))
@@ -40,6 +42,10 @@ class Game:
         self.background = self.level.background
         self.background_elements = []
         self.last_background_element_spawn_time = 0
+
+
+        self.boosts = []
+        self.boosts_lock = threading.Semaphore(CONFIG.BOOSTS_LIMIT)
 
     def new_level(self, new_level):
         self.level = new_level
@@ -122,11 +128,16 @@ class Game:
         self.shots_physic()
         self.check_collisions()
 
+
+        for boost in self.boosts:
+            boost.update()
         for planet in self.background_elements[:]:
             planet.update()
             if planet.rect.right < 0:
                 self.background_elements.remove(planet)
 
+        if random.choice([False, True]):
+            self.add_boost()
 
         if not self.boss_spawned and self.points >= self.points_to_beat:
             self.boss_spawned = True
@@ -153,6 +164,8 @@ class Game:
     def draw(self, screen):
         screen.blit(self.background, (0, 0))
 
+        for boost in self.boosts:
+            boost.draw(screen)
 
         for planet in self.background_elements:
             planet.draw(screen)
@@ -183,7 +196,7 @@ class Game:
         pygame.draw.rect(screen, WHITE, quit_button)
         quit_text = font.render("Quit", True, BLACK)
         screen.blit(quit_text, (
-        quit_button.centerx - quit_text.get_width() // 2, quit_button.centery - quit_text.get_height() // 2))
+            quit_button.centerx - quit_text.get_width() // 2, quit_button.centery - quit_text.get_height() // 2))
         screen.blit(self.player.sprite, self.player.rect)
         self.draw_boss_health_bar(screen)
         return quit_button
@@ -191,9 +204,17 @@ class Game:
     def move_player(self, dx, dy):
         self.player.move(dx, dy)
 
+    def add_boost(self):
+        if self.boosts_lock.acquire(blocking=False):
+            self.boosts.append(Boost())
+            threading.Timer(random.randint(5, 20), self.boosts_lock.release).start()
+
     def shoot(self):
-        shot = Shot(self.player.rect.midright)
-        self.shots.append(shot)
+        if self.player.ammo_limit_lock.acquire(blocking=False):
+            # TODO urozmaicić
+            shot = Shot(self.player.rect.midright)
+            self.shots.append(shot)
+            threading.Timer(self.player.reload_time, self.player.ammo_limit_lock.release).start()
 
     def spawn_boss(self):
         boss = self.level.boss_class
@@ -227,9 +248,10 @@ def timer(game):
         pygame.time.wait(10)
         game.timer.refresh()
 
+
 def spawn_background_element(game):
     while not game.game_over:
-        pygame.time.wait(random.randint(5, 30)*1000)
+        pygame.time.wait(random.randint(5, 30) * 1000)
         game.add_backround_element()
 
 
@@ -253,7 +275,7 @@ def main():
     timer_thread = threading.Thread(target=timer, args=(game,))
     timer_thread.start()
 
-    ui_background_items_thread = threading.Thread(target=spawn_background_element, args=(game, ))
+    ui_background_items_thread = threading.Thread(target=spawn_background_element, args=(game,))
     ui_background_items_thread.start()
 
     dx, dy = 0, 0

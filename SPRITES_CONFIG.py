@@ -135,3 +135,6 @@ for i in range(0, 6):
     load = pygame.image.load(path)
     scale = pygame.transform.scale(load, (500, 500))
     DYNAMIC_BACKGROUND_ITEMS.append(scale)
+
+STAR_LOAD = pygame.image.load('assets/backgrounds/elements/star.png')
+STAR = pygame.transform.scale(STAR_LOAD, (111, 111))
