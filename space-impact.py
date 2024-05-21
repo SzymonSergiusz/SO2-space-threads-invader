@@ -30,7 +30,7 @@ class Game:
     def __init__(self):
         self.timer = Timer()
         self.player = Player()
-        self.volume_slider = Slider(800, 30, 300, 20, 0, 2, 0.1)
+        self.volume_slider = Slider(800, 30, 300, 20, 0, 1, 0.1)
         self.game_over = False
         self.shots = []
         self.enemy_shots = []
@@ -273,7 +273,7 @@ def main():
 
     pygame.mixer.init()
     pygame.mixer.music.load("assets/background_music.mp3")
-    pygame.mixer.music.set_volume(0.5)
+    pygame.mixer.music.set_volume(0.1)
     if CONFIG.MUSIC_ON:
         pygame.mixer.music.play(-1)
 
