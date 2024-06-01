@@ -1,3 +1,5 @@
+import sys
+
 import pygame
 import random
 import threading
@@ -30,7 +32,7 @@ class Game:
     def __init__(self):
         self.timer = Timer()
         self.player = Player()
-        self.volume_slider = Slider(800, 30, 300, 20, 0, 1, 0.1)
+        self.volume_slider = Slider(800, 30, 300, 20, 0, 2, 0.1)
         self.game_over = False
         self.shots = []
         self.enemy_shots = []
@@ -45,13 +47,16 @@ class Game:
         self.background_elements = []
         self.last_background_element_spawn_time = 0
 
-
+        self.shots_thread = []
+        self.boosts_thread = []
         self.boosts = []
-        self.boosts_lock = threading.Semaphore(CONFIG.BOOSTS_LIMIT) # SEMAPHORE
+        self.boosts_lock = threading.Semaphore(CONFIG.BOOSTS_LIMIT)  # SEMAPHORE
+        self.background_items_thread = []
+        self.enemies_lock = threading.Semaphore(CONFIG.MAX_ENEMY_NUMBER)  # SEMAPHORE
 
-        self.enemies_lock = threading.Semaphore(CONFIG.MAX_ENEMY_NUMBER) # SEMAPHORE
+        self.background_lock = threading.Semaphore(1)
 
-        self.points_lock = threading.Lock() # MUTEX
+        self.points_lock = threading.Lock()  # MUTEX
 
     def new_level(self, new_level):
         self.level = new_level
@@ -64,11 +69,14 @@ class Game:
             self.enemies.append(enemy)
 
     def add_backround_element(self):
-        if SPRITES_CONFIG.DYNAMIC_BACKGROUND_ITEMS:
-            element = random.choice(SPRITES_CONFIG.DYNAMIC_BACKGROUND_ITEMS)
-            self.background_elements.append(BackgroundItems(element))
-            SPRITES_CONFIG.DYNAMIC_BACKGROUND_ITEMS.remove(element)
-
+        if self.background_lock.acquire(blocking=False):
+            if SPRITES_CONFIG.DYNAMIC_BACKGROUND_ITEMS:
+                element = random.choice(SPRITES_CONFIG.DYNAMIC_BACKGROUND_ITEMS)
+                self.background_elements.append(BackgroundItems(element))
+                SPRITES_CONFIG.DYNAMIC_BACKGROUND_ITEMS.remove(element)
+            thread = threading.Timer(random.randint(2, 20), self.background_lock.release)
+            thread.start()
+            self.background_items_thread.append(thread)
     def add_boss(self, boss: Boss):
         self.bosses.append(boss)
 
@@ -87,22 +95,23 @@ class Game:
         shots_to_remove = []
         enemies_to_remove = []
         bosses_to_remove = []
+        boosts_to_remove = []
 
         for shot in self.shots[:]:
             for enemy in self.enemies[:]:
                 if shot.rect.colliderect(enemy.rect):
                     if shot not in shots_to_remove:
                         shots_to_remove.append(shot)
-                    enemy.lifes -= 1
-                    if enemy.lifes <= 0 and enemy not in enemies_to_remove:
+                    enemy.lives -= 1
+                    if enemy.lives <= 0 and enemy not in enemies_to_remove:
                         enemies_to_remove.append(enemy)
 
             for boss in self.bosses[:]:
                 if shot.rect.colliderect(boss.rect):
                     if shot not in shots_to_remove:
                         shots_to_remove.append(shot)
-                    boss.lifes -= 1
-                    if boss.lifes <= 0 and boss not in bosses_to_remove:
+                    boss.lives -= 1
+                    if boss.lives <= 0 and boss not in bosses_to_remove:
                         bosses_to_remove.append(boss)
 
         for shot in shots_to_remove:
@@ -132,11 +141,19 @@ class Game:
                 if self.player.lifes <= 0:
                     self.game_over = True
 
+        for boost in self.boosts[:]:
+            if boost.rect.colliderect(self.player.rect):
+                boosts_to_remove.append(boost)
+
+                self.player = boost.upgrade(self.player)
+                print(f'kolizja player z boost ')
+        for boost in boosts_to_remove[:]:
+            self.boosts.remove(boost)
+
     def refresh(self):
         self.timer.refresh()
         self.shots_physic()
         self.check_collisions()
-
 
         for boost in self.boosts:
             boost.update()
@@ -152,6 +169,7 @@ class Game:
             self.boss_spawned = True
             self.enemies = []
             self.enemies_lock = threading.Semaphore(CONFIG.MAX_ENEMY_NUMBER)
+
             self.spawn_boss()
 
         if not self.boss_spawned:
@@ -218,15 +236,18 @@ class Game:
     def add_boost(self):
         if self.boosts_lock.acquire(blocking=False):
             self.boosts.append(Boost())
-            threading.Timer(random.randint(5, 20), self.boosts_lock.release).start()
+            thread = threading.Timer(random.randint(5, 20), self.boosts_lock.release)
+            thread.start()
+            self.boosts_thread.append(thread)
 
     def shoot(self):
         if self.player.ammo_limit_lock.acquire(blocking=False):
             # TODO urozmaicić
             shot = Shot(self.player.rect.midright)
             self.shots.append(shot)
-            threading.Timer(self.player.reload_time, self.player.ammo_limit_lock.release).start()
-
+            thread = threading.Timer(self.player.reload_time, self.player.ammo_limit_lock.release)
+            thread.start()
+            self.shots_thread.append(thread)
     def spawn_boss(self):
         boss = self.level.boss_class
         self.add_boss(boss)
@@ -237,7 +258,7 @@ class Game:
             max_lifes = boss.max_health
             bar_width = 1200
             bar_height = 20
-            fill_width = int(bar_width * boss.lifes / max_lifes)
+            fill_width = int(bar_width * boss.lives / max_lifes)
             bar_x = (SCREEN_WIDTH - bar_width) // 2
             bar_y = SCREEN_HEIGHT - 30
             screen.blit(pygame.font.Font(None, 50).render(boss.name, True, WHITE),
@@ -245,26 +266,45 @@ class Game:
             pygame.draw.rect(screen, CONFIG.RED, (bar_x, bar_y, bar_width, bar_height))
             pygame.draw.rect(screen, CONFIG.GREY, (bar_x, bar_y, fill_width, bar_height))
 
+    def stop_all_threads(self):
+        for timer_thread in self.boosts_thread:
+            timer_thread.cancel()
+        self.boosts_thread.clear()
 
-def spawn_enemy(game):
-    while not game.game_over:
+        for thread in self.shots_thread:
+            thread.cancel()
+        self.shots_thread.clear()
+
+        self.enemies_lock.release()
+        self.player.ammo_limit_lock.release()
+        if self.points_lock.locked():
+            self.points_lock.release()
+
+        for thread in self.background_items_thread:
+            thread.cancel()
+        self.background_items_thread.clear()
+
+
+def spawn_enemy(game, game_over_event):
+    while not game_over_event.is_set():
         if not game.boss_spawned and game.enemies_lock.acquire(blocking=False):
             enemy = Enemy()
             game.add_enemy(enemy)
-        pygame.time.wait(2000)
+        pygame.time.wait(random.randint(2, 5) * 1000)
 
 
-def timer(game):
-    while not game.game_over:
+def timer(game, game_over_event):
+    while not game_over_event.is_set():
         pygame.time.wait(10)
         game.timer.refresh()
 
-
-def spawn_background_element(game):
-    while not game.game_over:
-        pygame.time.wait(random.randint(5, 30) * 1000)
-        game.add_backround_element()
-
+# TODO TO PROWADZI DO BŁĘDU Z WYCHODZENIEM Z GRY
+# def spawn_background_element(game, game_over_event):
+#     while not game_over_event.is_set():
+#         pygame.time.wait(random.randint(5, 30) * 1000)
+#
+#         game.add_backround_element()
+        # pass
 
 def main():
     pygame.init()
@@ -273,30 +313,33 @@ def main():
 
     pygame.mixer.init()
     pygame.mixer.music.load("assets/background_music.mp3")
-    pygame.mixer.music.set_volume(0.1)
+    pygame.mixer.music.set_volume(0.5)
     if CONFIG.MUSIC_ON:
         pygame.mixer.music.play(-1)
 
     clock = pygame.time.Clock()
     game = Game()
-
-    enemy_spawner = threading.Thread(target=spawn_enemy, args=(game,))
+    game_over_event = threading.Event()
+    enemy_spawner = threading.Thread(target=spawn_enemy, args=(game,game_over_event))
     enemy_spawner.start()
 
-    timer_thread = threading.Thread(target=timer, args=(game,))
+    timer_thread = threading.Thread(target=timer, args=(game,game_over_event))
     timer_thread.start()
 
-    ui_background_items_thread = threading.Thread(target=spawn_background_element, args=(game,))
-    ui_background_items_thread.start()
+    # ui_background_items_thread = threading.Thread(target=spawn_background_element, args=(game,game_over_event))
+    # ui_background_items_thread.start()
 
     dx, dy = 0, 0
 
-    while not game.game_over:
+    running = True
+    while running and not game.game_over:
+        screen.fill(BLACK)
         quit_button = game.draw(screen)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                game.game_over = True
+                running = False
+                game_over_event.set()
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_w:
                     dy = -PLAYER_SPEED
@@ -315,11 +358,8 @@ def main():
                         game.points += 10
                 elif event.key == pygame.K_x:
                     if game.boss_spawned:
-                        game.bosses[0].lifes = 1
+                        game.bosses[0].lives = 1
 
-
-                elif event.key == pygame.K_ESCAPE:
-                    game.game_over = True
             elif event.type == pygame.KEYUP:
                 if event.key == pygame.K_w or event.key == pygame.K_s:
                     dy = 0
@@ -327,29 +367,43 @@ def main():
                     dx = 0
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if quit_button.collidepoint(event.pos):
-                    game.game_over = True
+                    running = False
+                    for thread in threading.enumerate():
+
+                        print(f"Active thread: {thread.name}")
+                    break
                 elif game.volume_slider.handle_rect.collidepoint(event.pos):
                     game.volume_slider.dragging = True
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 game.volume_slider.dragging = False
             elif event.type == pygame.MOUSEMOTION:
                 if game.volume_slider.dragging:
-                    new_x = max(game.volume_slider.rect.left, min(event.pos[0] - 10, game.volume_slider.rect.right - 20))
+                    new_x = max(game.volume_slider.rect.left,
+                                min(event.pos[0] - 10, game.volume_slider.rect.right - 20))
                     game.volume_slider.handle_rect.x = new_x
-                    game.volume_slider.value = game.volume_slider.min_val + (new_x - game.volume_slider.rect.left) / (game.volume_slider.rect.width) * (game.volume_slider.max_val - game.volume_slider.min_val)
+                    game.volume_slider.value = game.volume_slider.min_val + (new_x - game.volume_slider.rect.left) / (
+                        game.volume_slider.rect.width) * (game.volume_slider.max_val - game.volume_slider.min_val)
                     pygame.mixer.music.set_volume(game.volume_slider.get_value())
-
 
         game.move_player(dx, dy)
         game.refresh()
         pygame.display.flip()
         clock.tick(FPS)
 
+
+
+    pygame.mixer.music.stop()
+    game_over_event.set()
     enemy_spawner.join()
     timer_thread.join()
-    ui_background_items_thread.join()
+    # ui_background_items_thread.join()
+
+    game.stop_all_threads()
+
+
     pygame.quit()
 
 
 if __name__ == "__main__":
     main()
+

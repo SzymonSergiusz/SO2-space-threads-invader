@@ -10,7 +10,6 @@ from SPRITES_CONFIG import SHOT_SPRITE, PLAYER_SPRITE
 class Player:
     def __init__(self):
         self.lifes = PLAYER_LIVES
-
         self.sprite = PLAYER_SPRITE.convert_alpha()
         self.rect = self.sprite.get_rect(topleft=(50, SCREEN_HEIGHT // 2))
         self.shot_sprite = SHOT_SPRITE

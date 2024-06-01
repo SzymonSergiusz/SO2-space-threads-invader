@@ -1,7 +1,10 @@
 import random
+import threading
 
+import CONFIG
 import SPRITES_CONFIG
 from CONFIG import SCREEN_WIDTH, SCREEN_HEIGHT
+from characters.Player import Player
 
 
 class Boost:
@@ -18,3 +21,8 @@ class Boost:
 
     def draw(self, screen):
         screen.blit(self.sprite, self.rect)
+
+    def upgrade(self, player: Player):
+        # player.reload_time /= 2
+        # self.ammo_limit_lock = threading.Semaphore(CONFIG.AMMO_CAPACITY+3)
+        return player
