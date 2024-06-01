@@ -339,6 +339,7 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                game.game_over = True
                 game_over_event.set()
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_w:
@@ -368,6 +369,8 @@ def main():
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if quit_button.collidepoint(event.pos):
                     running = False
+                    game.game_over = True
+                    game_over_event.set()
                     for thread in threading.enumerate():
 
                         print(f"Active thread: {thread.name}")
