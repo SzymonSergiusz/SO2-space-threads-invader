@@ -82,12 +82,12 @@ class Game:
 
     def shots_physic(self):
         for shot in self.shots[:]:
-            shot.rect.x += SHOT_SPEED
+            shot.update()
             if shot.rect.x > SCREEN_WIDTH:
                 self.shots.remove(shot)
 
         for shot in self.enemy_shots[:]:
-            shot.rect.x -= SHOT_SPEED
+            shot.update()
             if shot.rect.x < 0 or shot.rect.y < 0 or shot.rect.y > SCREEN_HEIGHT:
                 self.enemy_shots.remove(shot)
 
@@ -102,7 +102,7 @@ class Game:
                 if shot.rect.colliderect(enemy.rect):
                     if shot not in shots_to_remove:
                         shots_to_remove.append(shot)
-                    enemy.lives -= 1
+                    enemy.lives -= self.player.damage
                     if enemy.lives <= 0 and enemy not in enemies_to_remove:
                         enemies_to_remove.append(enemy)
 
@@ -145,8 +145,8 @@ class Game:
             if boost.rect.colliderect(self.player.rect):
                 boosts_to_remove.append(boost)
 
-                self.player = boost.upgrade(self.player)
-                print(f'kolizja player z boost ')
+                self.player, upgrade = boost.upgrade(self.player)
+                print(f'upgrade: {upgrade}')
         for boost in boosts_to_remove[:]:
             self.boosts.remove(boost)
 
@@ -242,9 +242,9 @@ class Game:
 
     def shoot(self):
         if self.player.ammo_limit_lock.acquire(blocking=False):
-            # TODO urozmaicić
-            shot = Shot(self.player.rect.midright)
-            self.shots.append(shot)
+            shot = self.player.shoot()
+            for s in shot:
+                self.shots.append(s)
             thread = threading.Timer(self.player.reload_time, self.player.ammo_limit_lock.release)
             thread.start()
             self.shots_thread.append(thread)

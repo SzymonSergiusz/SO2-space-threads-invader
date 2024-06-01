@@ -9,6 +9,22 @@ PLAYER_SPRITE = pygame.transform.rotate(PLAYER_SPRITE_SCALED, 270)
 SHOT_SPRITE = pygame.image.load("assets/shot.png")
 SHOT_SPRITE = pygame.transform.scale(SHOT_SPRITE, (100, 50))
 
+UPGRADED_SHOT_SPRITE1 = pygame.image.load("assets/upgraded_lasers/shot1.png")
+UPGRADED_SHOT1 = pygame.transform.scale(UPGRADED_SHOT_SPRITE1, (200, 200))
+UPGRADED_SHOT_SPRITE2 = pygame.image.load("assets/upgraded_lasers/shot2.png")
+UPGRADED_SHOT2 = pygame.transform.scale(UPGRADED_SHOT_SPRITE2, (200, 200))
+UPGRADED_SHOT_SPRITE3 = pygame.image.load("assets/upgraded_lasers/shot3.png")
+UPGRADED_SHOT3 = pygame.transform.scale(UPGRADED_SHOT_SPRITE3, (200, 200))
+UPGRADED_SHOT_SPRITE4 = pygame.image.load("assets/upgraded_lasers/shot4.png")
+UPGRADED_SHOT4 = pygame.transform.scale(UPGRADED_SHOT_SPRITE4, (200, 200))
+
+UPGRADED_SHOT_FRAMES = [
+    UPGRADED_SHOT1,
+    UPGRADED_SHOT2,
+    UPGRADED_SHOT3,
+    UPGRADED_SHOT4,
+]
+
 ENEMY_SHOT_SPRITE_LOAD = pygame.image.load("assets/enemy_shot.png")
 ENEMY_SHOT_SPRITE = pygame.transform.scale(ENEMY_SHOT_SPRITE_LOAD, (100, 50))
 

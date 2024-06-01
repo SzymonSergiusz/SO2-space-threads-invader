@@ -1,6 +1,8 @@
 import random
 import threading
 
+import pygame
+
 import CONFIG
 import SPRITES_CONFIG
 from CONFIG import SCREEN_WIDTH, SCREEN_HEIGHT
@@ -23,6 +25,33 @@ class Boost:
         screen.blit(self.sprite, self.rect)
 
     def upgrade(self, player: Player):
-        # player.reload_time /= 2
-        # self.ammo_limit_lock = threading.Semaphore(CONFIG.AMMO_CAPACITY+3)
-        return player
+        upgrades_list = [
+            'reload',
+            'damage',
+            'weapon_level',
+            'capacity',
+            'speed'
+        ]
+        upgrade = random.choice(upgrades_list)
+
+        match upgrade:
+            case 'reload':
+                player.reload_time /= 2
+            case 'damage':
+                player.damage += 1
+            case 'capacity':
+                # player.ammo_limit_lock.release()
+                player.ammo_capacity += 1
+                player.ammo_limit_lock = threading.Semaphore(player.ammo_capacity)
+            case 'weapon_level':
+                player.weapon_level += 1
+                if player.weapon_level == 2:
+                    upgrades_list.remove('weapon_level')
+            case 'speed':
+                player.shot_speed += 5
+            case _:
+                pass
+
+        player.reload_time /= 2
+
+        return player, upgrade
