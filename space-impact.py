@@ -17,6 +17,8 @@ from characters.BossEnemies import Boss, SpaceDragon, SpaceCow, MegaSpaceDragon
 from ui.BackgroundItems import BackgroundItems
 from ui.Boost import Boost
 from ui.Timer import Timer
+from ui.Menu import Menu
+
 
 LEVELS = [
     Level(0, SPRITES_CONFIG.BACKGROUND1, 20,
@@ -32,7 +34,7 @@ class Game:
     def __init__(self):
         self.timer = Timer()
         self.player = Player()
-        self.volume_slider = Slider(800, 30, 300, 20, 0, 2, 0.1)
+        self.volume_slider = Slider(800, 30, 300, 20, 0, 2, 0.5)
         self.game_over = False
         self.shots = []
         self.enemy_shots = []
@@ -221,13 +223,13 @@ class Game:
         screen.blit(points_surf, (10, 90))
 
         quit_button = pygame.Rect(SCREEN_WIDTH - 100, 10, 80, 40)
-        pygame.draw.rect(screen, WHITE, quit_button)
-        quit_text = font.render("Quit", True, BLACK)
-        screen.blit(quit_text, (
-            quit_button.centerx - quit_text.get_width() // 2, quit_button.centery - quit_text.get_height() // 2))
+        #pygame.draw.rect(screen, WHITE, quit_button)
+        #quit_text = font.render("Quit", True, BLACK)
+        #screen.blit(quit_text, (
+        #    quit_button.centerx - quit_text.get_width() // 2, quit_button.centery - quit_text.get_height() // 2))
         screen.blit(self.player.sprite, self.player.rect)
         self.draw_boss_health_bar(screen)
-        self.volume_slider.draw(screen)
+        #self.volume_slider.draw(screen)
         return quit_button
 
     def move_player(self, dx, dy):
@@ -319,6 +321,7 @@ def main():
 
     clock = pygame.time.Clock()
     game = Game()
+    menu = Menu()
     game_over_event = threading.Event()
     enemy_spawner = threading.Thread(target=spawn_enemy, args=(game,game_over_event))
     enemy_spawner.start()
@@ -330,44 +333,82 @@ def main():
     # ui_background_items_thread.start()
 
     dx, dy = 0, 0
+    w_pressed = False
+    a_pressed = False
+    s_pressed = False
+    d_pressed = False
 
     running = True
+    paused = False
+
     while running and not game.game_over:
-        screen.fill(BLACK)
-        quit_button = game.draw(screen)
+        if not paused:
+            screen.fill(BLACK)
+            quit_button = game.draw(screen)
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-                game.game_over = True
-                game_over_event.set()
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_w:
-                    dy = -PLAYER_SPEED
-                elif event.key == pygame.K_a:
-                    dx = -PLAYER_SPEED
-                elif event.key == pygame.K_s:
-                    dy = PLAYER_SPEED
-                elif event.key == pygame.K_d:
-                    dx = PLAYER_SPEED
-                elif event.key == pygame.K_SPACE:
-                    game.shoot()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    game.game_over = True
+                    game_over_event.set()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_w:
+                        w_pressed = True
+                    elif event.key == pygame.K_a:
+                        a_pressed = True
+                    elif event.key == pygame.K_s:
+                        s_pressed = True
+                    elif event.key == pygame.K_d:
+                        d_pressed = True
+                    elif event.key == pygame.K_SPACE:
+                        game.shoot()
+                    elif event.key == pygame.K_ESCAPE:
+                        paused = not paused
 
-                # CHEAT CODES
-                elif event.key == pygame.K_p:
-                    with game.points_lock:
-                        game.points += 10
-                elif event.key == pygame.K_x:
-                    if game.boss_spawned:
-                        game.bosses[0].lives = 1
+                    # CHEAT CODES
+                    elif event.key == pygame.K_p:
+                        with game.points_lock:
+                            game.points += 10
+                    elif event.key == pygame.K_x:
+                        if game.boss_spawned:
+                            game.bosses[0].lives = 1
 
-            elif event.type == pygame.KEYUP:
-                if event.key == pygame.K_w or event.key == pygame.K_s:
-                    dy = 0
-                elif event.key == pygame.K_a or event.key == pygame.K_d:
-                    dx = 0
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if quit_button.collidepoint(event.pos):
+                elif event.type == pygame.KEYUP:
+                    if event.key == pygame.K_w:
+                        w_pressed = False
+                    elif event.key == pygame.K_a:
+                        a_pressed = False
+                    elif event.key == pygame.K_s:
+                        s_pressed = False
+                    elif event.key == pygame.K_d:
+                        d_pressed = False                    
+
+            if (w_pressed and s_pressed) or not (w_pressed or s_pressed):
+                dy = 0
+            elif w_pressed:
+                dy =- PLAYER_SPEED     
+            elif s_pressed:
+                dy = PLAYER_SPEED         
+            
+            if (a_pressed and d_pressed) or not (a_pressed or d_pressed):
+                dx = 0
+            elif a_pressed:
+                dx = -PLAYER_SPEED
+            elif d_pressed:
+                dx = PLAYER_SPEED
+
+
+            game.move_player(dx, dy)
+            game.refresh()
+            pygame.display.flip()
+        
+        else:
+            menu.display(screen)
+            resume = menu.handle_events()
+            if resume is not None:
+                if resume:
+                    paused = not paused
+                else:
                     running = False
                     game.game_over = True
                     game_over_event.set()
@@ -375,22 +416,7 @@ def main():
 
                         print(f"Active thread: {thread.name}")
                     break
-                elif game.volume_slider.handle_rect.collidepoint(event.pos):
-                    game.volume_slider.dragging = True
-            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                game.volume_slider.dragging = False
-            elif event.type == pygame.MOUSEMOTION:
-                if game.volume_slider.dragging:
-                    new_x = max(game.volume_slider.rect.left,
-                                min(event.pos[0] - 10, game.volume_slider.rect.right - 20))
-                    game.volume_slider.handle_rect.x = new_x
-                    game.volume_slider.value = game.volume_slider.min_val + (new_x - game.volume_slider.rect.left) / (
-                        game.volume_slider.rect.width) * (game.volume_slider.max_val - game.volume_slider.min_val)
-                    pygame.mixer.music.set_volume(game.volume_slider.get_value())
 
-        game.move_player(dx, dy)
-        game.refresh()
-        pygame.display.flip()
         clock.tick(FPS)
 
 
