@@ -11,7 +11,7 @@ from characters.BasicEnemies import Enemy
 
 class Boss(Enemy):
     def __init__(self, boss_list_element, arriving_count=550):
-        sprite, self.lifes, self.speed, self.name = boss_list_element
+        sprite, self.lives, self.speed, self.name = boss_list_element
         self.sprite = sprite
         self.rect = self.sprite.get_rect()
         x = SCREEN_WIDTH + random.randint(10, 50)
@@ -22,7 +22,7 @@ class Boss(Enemy):
         self.arriving_count = arriving_count
         self.horizontal_count = random.randint(5, 10)
         self.horizontal_direction = random.choice([-1, 1])
-        self.max_health = self.lifes
+        self.max_health = self.lives
 
     def update(self):
         if self.arriving_count < 0:

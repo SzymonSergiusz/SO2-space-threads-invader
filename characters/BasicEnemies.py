@@ -10,7 +10,7 @@ ENEMY_BORDER_RIGHT = SCREEN_WIDTH-100
 ENEMY_BORDER_LEFT = SCREEN_WIDTH - ENEMY_BORDER_X
 class Enemy:
     def __init__(self):
-        sprite, self.lifes, self.speed = random.choice(ENEMY_LIST)
+        sprite, self.lives, self.speed = random.choice(ENEMY_LIST)
         self.sprite = sprite
         self.rect = self.sprite.get_rect()
         x = SCREEN_WIDTH + random.randint(10, 50)
