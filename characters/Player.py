@@ -36,7 +36,10 @@ class Player:
                         Shot(self.rect.bottomright, 'bottom', y=2, damage=self.damage, shot_speed=self.shot_speed)]
 
             case _:
-                return [Shot(self.rect.midright)]
+                return [Shot(self.rect.topright, 'top', y=2, damage=self.damage, shot_speed=self.shot_speed),
+                        Shot(self.rect.midright,
+                             'mid', damage=self.damage, shot_speed=self.shot_speed),
+                        Shot(self.rect.bottomright, 'bottom', y=2, damage=self.damage, shot_speed=self.shot_speed)]
 
     def move(self, dx, dy):
         self.rect.x += dx

@@ -8,6 +8,14 @@ import SPRITES_CONFIG
 from CONFIG import SCREEN_WIDTH, SCREEN_HEIGHT
 from characters.Player import Player
 
+UPGRADES_LIST = [
+    'reload',
+    'damage',
+    'weapon_level',
+    'capacity',
+    'speed'
+]
+
 
 class Boost:
     def __init__(self):
@@ -25,14 +33,8 @@ class Boost:
         screen.blit(self.sprite, self.rect)
 
     def upgrade(self, player: Player):
-        upgrades_list = [
-            'reload',
-            'damage',
-            'weapon_level',
-            'capacity',
-            'speed'
-        ]
-        upgrade = random.choice(upgrades_list)
+
+        upgrade = random.choice(UPGRADES_LIST)
 
         match upgrade:
             case 'reload':
@@ -40,15 +42,14 @@ class Boost:
             case 'damage':
                 player.damage += 1
             case 'capacity':
-                # player.ammo_limit_lock.release()
                 player.ammo_capacity += 1
                 player.ammo_limit_lock = threading.Semaphore(player.ammo_capacity)
             case 'weapon_level':
                 player.weapon_level += 1
                 if player.weapon_level == 2:
-                    upgrades_list.remove('weapon_level')
+                    UPGRADES_LIST.remove('weapon_level')
             case 'speed':
-                player.shot_speed += 5
+                player.shot_speed += 2
             case _:
                 pass
 

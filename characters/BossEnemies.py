@@ -119,14 +119,14 @@ class MegaSpaceDragon(Boss):
 
     def shoot(self):
         bullets = []
-        if self.shoot_timer >= 80:
+        if self.shoot_timer >= 20:
             for angle in range(0, 360, 30):
                 radian = angle * (math.pi / 180)
                 direction = (-10 * round(math.cos(radian), 2), 10 * round(math.sin(radian), 2))
                 bullets.append(MegaSpaceDragonShot(self.rect.center, direction))
 
 
-            for _ in range(5):
+            for _ in range(10):
                 direction_y = random.randint(-5, 5)
                 direction_x = random.randint(-5, 5)
                 bullets.append(MegaSpaceDragonShot(self.rect.midleft, (direction_x, direction_y)))
@@ -155,7 +155,7 @@ class MegaSpaceDragonShot:
         self.distance_traveled = 0
 
     def update(self):
-        speed = 10
+        speed = 15
         self.rect.x += self.direction[0]
         self.rect.y += self.direction[1]
         self.distance_traveled += speed

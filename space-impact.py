@@ -23,9 +23,9 @@ from ui.Menu import Menu
 LEVELS = [
     Level(0, SPRITES_CONFIG.BACKGROUND1, 20,
           SpaceDragon((SPRITES_CONFIG.SPACE_DRAGON, 40, 8, 'Rayquaza z Pokemonów')), ),
-    Level(1, SPRITES_CONFIG.BACKGROUND2, 50, SpaceCow((SPRITES_CONFIG.SPACE_COW, 40, 8, 'Kosmiczna krowa')), ),
+    Level(1, SPRITES_CONFIG.BACKGROUND2, 50, SpaceCow((SPRITES_CONFIG.SPACE_COW, 80, 8, 'Kosmiczna krowa')), ),
     Level(2, SPRITES_CONFIG.BACKGROUND3, 70,
-          MegaSpaceDragon((SPRITES_CONFIG.MEGA_SPACE_DRAGON_FRAMES[0], 40, 8, 'MegaSmok'),
+          MegaSpaceDragon((SPRITES_CONFIG.MEGA_SPACE_DRAGON_FRAMES[0], 1000, 8, 'MegaSmok'),
                           SPRITES_CONFIG.MEGA_SPACE_DRAGON_FRAMES))
 ]
 
@@ -76,7 +76,7 @@ class Game:
                 element = random.choice(SPRITES_CONFIG.DYNAMIC_BACKGROUND_ITEMS)
                 self.background_elements.append(BackgroundItems(element))
                 SPRITES_CONFIG.DYNAMIC_BACKGROUND_ITEMS.remove(element)
-            thread = threading.Timer(random.randint(2, 20), self.background_lock.release)
+            thread = threading.Timer(random.randint(5, 10), self.background_lock.release)
             thread.start()
             self.background_items_thread.append(thread)
     def add_boss(self, boss: Boss):
@@ -112,7 +112,7 @@ class Game:
                 if shot.rect.colliderect(boss.rect):
                     if shot not in shots_to_remove:
                         shots_to_remove.append(shot)
-                    boss.lives -= 1
+                    boss.lives -= self.player.damage
                     if boss.lives <= 0 and boss not in bosses_to_remove:
                         bosses_to_remove.append(boss)
 
@@ -166,6 +166,9 @@ class Game:
 
         if random.choice([False, True]):
             self.add_boost()
+
+        if random.choice([False, True]):
+            self.add_backround_element()
 
         if not self.boss_spawned and self.points >= self.points_to_beat:
             self.boss_spawned = True
@@ -223,13 +226,8 @@ class Game:
         screen.blit(points_surf, (10, 90))
 
         quit_button = pygame.Rect(SCREEN_WIDTH - 100, 10, 80, 40)
-        #pygame.draw.rect(screen, WHITE, quit_button)
-        #quit_text = font.render("Quit", True, BLACK)
-        #screen.blit(quit_text, (
-        #    quit_button.centerx - quit_text.get_width() // 2, quit_button.centery - quit_text.get_height() // 2))
         screen.blit(self.player.sprite, self.player.rect)
         self.draw_boss_health_bar(screen)
-        #self.volume_slider.draw(screen)
         return quit_button
 
     def move_player(self, dx, dy):
@@ -300,14 +298,6 @@ def timer(game, game_over_event):
         pygame.time.wait(10)
         game.timer.refresh()
 
-# TODO TO PROWADZI DO BŁĘDU Z WYCHODZENIEM Z GRY
-# def spawn_background_element(game, game_over_event):
-#     while not game_over_event.is_set():
-#         pygame.time.wait(random.randint(5, 30) * 1000)
-#
-#         game.add_backround_element()
-        # pass
-
 def main():
     pygame.init()
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -328,9 +318,6 @@ def main():
 
     timer_thread = threading.Thread(target=timer, args=(game,game_over_event))
     timer_thread.start()
-
-    # ui_background_items_thread = threading.Thread(target=spawn_background_element, args=(game,game_over_event))
-    # ui_background_items_thread.start()
 
     dx, dy = 0, 0
     w_pressed = False
@@ -372,6 +359,10 @@ def main():
                     elif event.key == pygame.K_x:
                         if game.boss_spawned:
                             game.bosses[0].lives = 1
+                    elif event.key == pygame.K_1:
+                        game.player.weapon_level +=1
+                    elif event.key == pygame.K_2:
+                        game.player.damage += 1
 
                 elif event.type == pygame.KEYUP:
                     if event.key == pygame.K_w:
@@ -425,7 +416,6 @@ def main():
     game_over_event.set()
     enemy_spawner.join()
     timer_thread.join()
-    # ui_background_items_thread.join()
 
     game.stop_all_threads()
 
