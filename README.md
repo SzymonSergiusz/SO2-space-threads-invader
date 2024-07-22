@@ -2,6 +2,12 @@
 ## Opis projektu
 Założeniem projektu było wykorzystanie stworzenie aplikacji wykorzystującej wielowątkowość oraz sekcje krytyczne (mutexy i semaphory).
 Aplikacja jest grą, która jest inspirowana starą grą [Space Impact](https://www.youtube.com/watch?v=tKobl50jrLk)  na Nokie 3310.
+
+## Z curses do pygame
+Wstępna wersja gry wykorzystywała bibliotekę curses aby gra była w pełni grywalna z poziomu terminalu. 
+![Cursed Space Impact](https://github.com/SzymonSergiusz/SO2-space-threads-invader/blob/main/cursed-game-image)
+Funkcjonalności, które planowaliśmy zaimplementować, nie były możliwe do zrealizowania przy użyciu curses i zaczęliśmy przepisywać grę przy użyciu biblioteki pygame.
+
 ## UI 
 ![UI](https://github.com/SzymonSergiusz/SO2-space-threads-invader/blob/main/ui.png?raw=true)
 ## Wątki
